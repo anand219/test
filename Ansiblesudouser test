@@ -1,0 +1,31 @@
+---
+- hosts: all
+  any_errors_fatal: false
+  vars:
+    ansibleuser: test
+  tasks:
+
+    - name: checking the ansible remote user has sudo privillages
+      shell: cat /etc/sudoers | egrep "{{ ansibleuser }}"
+      register: result
+      become: true
+     #become_user: root
+      ignore_errors: true
+     #become_method: sudo
+
+    - name: checking the content for sudo access
+      debug:
+        msg: "{{ result }}"
+
+    - name: Display the ansible user doesnt have sudo access
+      debug:
+        msg: "Please provide the sudo access to the user"
+      when: result.rc == 1
+
+    - name: Sudoers | update sudoers file and validate
+      lineinfile: "path=/etc/sudoers
+        insertafter=EOF
+        line='{{ ansibleuser }} ALL=(root) NOPASSWD:ALL'
+        regexp='{{ ansibleuser }} ALL=(root) NOPASSWD:ALL'
+        state=present"
+      when: result.rc == 1
