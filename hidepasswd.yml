@@ -1,0 +1,35 @@
+#one more requirement using ansible valut to hide passwords
+- name: checking the ansible remote user has sudo privillages
+      shell: cat /etc/sudoers | egrep "{{ ansible_user_id }}"
+      register: result
+      become: true
+      ignore_errors: true
+
+    - name: checking the content for sudo access
+      debug:
+        msg: "{{ result }}"
+
+    - name: Display the ansible user doesnt have sudo access
+      debug:
+        msg: "Please provide the sudo access to the user"
+      when: result.rc == 1
+
+    - name: Sudoers | update sudoers file
+      lineinfile: "path=/etc/sudoers
+        insertafter=EOF
+        line='{{ ansible_user_id }} ALL=(root) NOPASSWD:ALL'
+        regexp='{{ ansible_user_id }} ALL=(root) NOPASSWD:ALL'
+        state=present"
+      become: true
+      when: result.rc == 1
+
+    - name: Final sudoers file check
+      shell: visudo -q -c -f /etc/sudoers
+      become: true
+      when: result.rc == 1
+
+    - name: setup | authorized key upload
+      authorized_key: user={{ ansible_user_id }}
+        key="{{ lookup('file', '/home/ansible/.ssh/id_rsa.pub') }}"
+        state=present
+      when: result.rc == 1
